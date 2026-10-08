@@ -1,0 +1,18 @@
+name = "ParseItBench"
+defaultTargets = ["bench"]
+
+[[require]]
+name = "ParseIt"
+path = ".."
+
+[[require]]
+name = "Parser"
+git = "https://github.com/fgdorais/lean4-parser"
+rev = "main"
+
+[[lean_lib]]
+name = "Bench"
+
+[[lean_exe]]
+name = "bench"
+root = "Main"
