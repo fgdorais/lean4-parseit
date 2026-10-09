@@ -37,6 +37,8 @@ def parseSum : Parser (Error.Basic CharIterator) CharIterator Char Int :=
 The `ParseItExamples` directory contains more elaborate parsers: a BNF parser that parses its own syntax,
 a JSON validator and a Roman numeral parser.
 
+Coming from lean4-parser? See [MIGRATION.md](MIGRATION.md).
+
 ## Overview
 
 * `ParseIt.Basic`: the `ParserT` monad transformer, alternatives with `<|>` and `first`,
