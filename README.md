@@ -1,4 +1,4 @@
-# ParseIt
+# Lean 4 / ParseIt
 
 A lean parser combinator library for [Lean 4](https://lean-lang.org/), built on iterators.
 
