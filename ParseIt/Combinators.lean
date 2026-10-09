@@ -95,7 +95,7 @@ Core of the `foldl` family. Each round parses `p` and then runs the update parse
 ends when a round fails, or right after a round succeeds without consuming input. The final
 failed round is not consumed; its error is returned when `p` succeeded but `f` failed.
 -/
-@[specialize]
+@[inline]
 private def efoldlP [Iterators.Finite ι Id] [Monad m] (f : β → α → ParserT ε ι τ m β) (init : β)
     (p : ParserT ε ι τ m α) : ParserT ε ι τ m (β × Option ε) := fun it =>
   loop it init it (.refl it)
@@ -200,7 +200,7 @@ value over the results of zero or more occurrences of `p` until `stop` succeeds,
 result of folding with the result of `stop`. If `p` fails before `stop` succeeds then the error from
 `p` is reported. If `p` succeeds without consuming input then the error from `stop` is reported.
 -/
-@[specialize]
+@[inline]
 public def foldlUntil [Iterators.Finite ι Id] [Monad m] (f : γ → α → γ) (init : γ)
     (stop : ParserT ε ι τ m β) (p : ParserT ε ι τ m α) : ParserT ε ι τ m (γ × β) := fun it =>
   loop it init it (.refl it)
