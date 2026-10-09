@@ -1,0 +1,65 @@
+name: Update Nightly Toolchain
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 10 * * *"
+
+concurrency:
+  group: update-nightly-testing
+  cancel-in-progress: false
+
+jobs:
+  update-nightly-testing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout nightly-testing
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: nightly-testing
+          token: ${{ secrets.PARSEIT_TOKEN }}
+
+      - name: Gather revisions and update toolchain
+        id: toolchain
+        run: |
+          UNICODE_BASIC_REV=$(git ls-remote --exit-code \
+            https://github.com/fgdorais/lean4-unicode-basic.git \
+            refs/heads/nightly-testing | cut -f1)
+          REQUESTED_TOOLCHAIN=$(curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/fgdorais/lean4-unicode-basic/${UNICODE_BASIC_REV}/lean-toolchain" | tr -d '\n')
+          if [[ "$REQUESTED_TOOLCHAIN" != leanprover/lean4:* ]]; then
+            echo "::error::Unexpected UnicodeBasic toolchain: ${REQUESTED_TOOLCHAIN}"
+            exit 1
+          fi
+          CURRENT_TOOLCHAIN=$(tr -d '\n' < lean-toolchain)
+
+          if [ "$CURRENT_TOOLCHAIN" = "$REQUESTED_TOOLCHAIN" ]; then
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "$REQUESTED_TOOLCHAIN" > lean-toolchain
+          echo "toolchain_rev=${REQUESTED_TOOLCHAIN#leanprover/lean4:}" >> "$GITHUB_OUTPUT"
+          echo "updated=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install Lean
+        if: steps.toolchain.outputs.updated == 'true'
+        uses: leanprover/lean-action@f061402b660e0c34644504b324e830f2991d4865 # v1.6.1
+        with:
+          auto-config: false
+          use-github-cache: false
+
+      - name: Update manifest
+        if: steps.toolchain.outputs.updated == 'true'
+        run: lake update --keep-toolchain
+
+      - name: Commit update
+        if: steps.toolchain.outputs.updated == 'true'
+        env:
+          TOOLCHAIN_REV: ${{ steps.toolchain.outputs.toolchain_rev }}
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+          git add lean-toolchain lake-manifest.json
+          git commit -m "chore: update toolchain to ${TOOLCHAIN_REV}"
+          git push origin nightly-testing

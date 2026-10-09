@@ -1,0 +1,9 @@
+import ParseItTest.Basic
+import ParseItTest.Combinators
+import ParseItTest.Repeat
+import ParseItTest.Text
+import ParseItTest.Unicode
+import ParseItTest.Roman
+import ParseItTest.JSON
+import ParseItTest.BNF
+import ParseItTest.Readme

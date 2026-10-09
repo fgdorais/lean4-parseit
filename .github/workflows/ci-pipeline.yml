@@ -1,0 +1,13 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [ "main", "nightly-testing" ]
+
+concurrency:
+  group: ci-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-ci:
+    uses: ./.github/workflows/build.yml

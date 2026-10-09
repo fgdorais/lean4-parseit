@@ -1,0 +1,92 @@
+name: Update Docs
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * *"
+
+concurrency:
+  group: update-docs
+  cancel-in-progress: false
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # doc-gen4 only builds with its own toolchain, so pick a doc-gen4 revision that uses ours:
+      # the release tag for our toolchain if there is one, otherwise main if it matches.
+      - name: Find doc-gen4 revision
+        id: docgen
+        run: |
+          TOOLCHAIN=$(tr -d '\n' < lean-toolchain)
+          TOOLCHAIN_REV=${TOOLCHAIN#leanprover/lean4:}
+          if git ls-remote --exit-code --tags https://github.com/leanprover/doc-gen4.git \
+              "refs/tags/${TOOLCHAIN_REV}" > /dev/null; then
+            echo "rev=${TOOLCHAIN_REV}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          DOCGEN_REV=$(git ls-remote --exit-code \
+            https://github.com/leanprover/doc-gen4.git refs/heads/main | cut -f1)
+          DOCGEN_TOOLCHAIN=$(curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/leanprover/doc-gen4/${DOCGEN_REV}/lean-toolchain" \
+            | tr -d '\n')
+          if [ "$DOCGEN_TOOLCHAIN" = "$TOOLCHAIN" ]; then
+            echo "rev=${DOCGEN_REV}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No doc-gen4 for ${TOOLCHAIN}; main uses ${DOCGEN_TOOLCHAIN}. Skipping."
+            echo "rev=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The docs depend only on the library sources, its dependencies and toolchain, and the
+      # doc-gen4 revision. The last docs commit records these, so skip the run when none changed.
+      - name: Check for changes
+        id: changes
+        if: steps.docgen.outputs.rev != ''
+        env:
+          DOCGEN_REV: ${{ steps.docgen.outputs.rev }}
+        run: |
+          SOURCE=$(git rev-parse HEAD:ParseIt HEAD:ParseIt.lean HEAD:lake-manifest.json \
+            HEAD:lean-toolchain HEAD:docs | sha1sum | cut -d' ' -f1)
+          STAMP="source ${SOURCE}, doc-gen4 ${DOCGEN_REV}"
+          echo "stamp=${STAMP}" >> "$GITHUB_OUTPUT"
+          if git fetch --quiet --depth=1 origin docs \
+              && [ "$(git log -1 --format=%b FETCH_HEAD | tr -d '\n')" = "$STAMP" ]; then
+            echo "::notice::Docs are up to date for ${STAMP}; skipping"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Lean
+        if: steps.changes.outputs.build == 'true'
+        uses: leanprover/lean-action@f061402b660e0c34644504b324e830f2991d4865 # v1.6.1
+        with:
+          auto-config: false
+          use-github-cache: true
+
+      - name: Build Docs
+        if: steps.changes.outputs.build == 'true'
+        working-directory: docs
+        env:
+          DOCGEN_REV: ${{ steps.docgen.outputs.rev }}
+        run: |
+          sed -i "s/^rev = \"main\"$/rev = \"${DOCGEN_REV}\"/" lakefile.toml
+          lake build ParseIt:docs
+
+      - name: Publish Docs
+        if: steps.changes.outputs.build == 'true'
+        env:
+          STAMP: ${{ steps.changes.outputs.stamp }}
+        run: |
+          git config user.name 'ParseIt Bot'
+          git config user.email 'parseit-bot@users.noreply.github.com'
+          git checkout -b docs
+          git add docs/doc docs/doc-data
+          git commit -m 'chore: generate docs' -m "$STAMP"
+          git push origin docs --force

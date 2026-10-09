@@ -1,0 +1,14 @@
+name = "ParseIt"
+defaultTargets = ["ParseIt", "ParseItTest"]
+
+[[lean_lib]]
+name = "ParseIt"
+
+[[lean_lib]]
+name = "ParseItTest"
+globs = ["ParseItTest", "ParseItTest.+", "ParseItExamples.+"]
+
+[[require]]
+name = "UnicodeBasic"
+git = "https://github.com/fgdorais/lean4-unicode-basic"
+rev = "main"
