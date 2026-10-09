@@ -101,17 +101,22 @@ statuses C and F) equals `s`, and returns the input that matched. The pattern `s
 case folded already, for example `"strasse"` matches `"Straße"` and `"STRASSE"`.
 -/
 public def stringCaseInsensitive (s : String) : ParserT ε ι Char m String :=
-  withErrorMessage s!"expected {repr s} (case-insensitive)" <| loop s.length s.toList ""
+  withErrorMessage s!"expected {repr s} (case-insensitive)" <| loop s.utf8ByteSize s.toSlice ""
 where
   /-- Match the folded characters `rest`, with fuel `n` bounding the number of input characters. -/
-  loop : Nat → List Char → String → ParserT ε ι Char m String
-    | _, [], acc => pure acc
-    | 0, _ :: _, _ => throwUnexpected
-    | n + 1, rest@(_ :: _), acc => do
-      let (c, rest) ← tokenMap fun c =>
-        let f := (Unicode.getCaseFolding c).toList
-        if !f.isEmpty && f.isPrefixOf rest then some (c, rest.drop f.length) else none
-      loop n rest (acc.push c)
+  loop : Nat → String.Slice → String → ParserT ε ι Char m String
+    | 0, rest, acc => if rest.isEmpty then pure acc else throwUnexpected
+    | n + 1, rest, acc =>
+      if rest.isEmpty then pure acc else do
+        let (c, rest) ← tokenMap fun c =>
+          if c.val < 0x80 then
+            -- ASCII fast path: avoid allocating the case folding as a string
+            let f := if 'A' ≤ c && c ≤ 'Z' then Char.ofNat (c.val + 0x20).toNat else c
+            (rest.dropPrefix? f).map (c, ·)
+          else
+            let f := Unicode.getCaseFolding c
+            if f.isEmpty then none else (rest.dropPrefix? f).map (c, ·)
+        loop n rest (acc.push c)
 
 /-!
   ## Scripts ##
