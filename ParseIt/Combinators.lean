@@ -97,21 +97,24 @@ failed round is not consumed; its error is returned when `p` succeeded but `f` f
 -/
 @[specialize]
 private def efoldlP [Iterators.Finite ι Id] [Monad m] (f : β → α → ParserT ε ι τ m β) (init : β)
-    (p : ParserT ε ι τ m α) : ParserT ε ι τ m (β × Option ε) := fun it => do
-  match ← p it with
-  | .error _ => return .ok it (.refl it) (init, none)
-  | .ok rest₁ h₁ x =>
-    match ← f init x rest₁ with
-    | .error e => return .ok it (.refl it) (init, some e)
-    | .ok rest₂ h₂ y =>
-      match h₂.trans h₁ with
-      | .stay h => return .ok rest₂ (.stay h) (y, none)
-      | .moved h =>
-        match ← efoldlP f y p rest₂ with
-        | .ok rest₃ h₃ z => return .ok rest₃ (h₃.trans (.moved h)) z
-        | .error e => return .error e
-termination_by it => it.finitelyManySteps
-decreasing_by exact h
+    (p : ParserT ε ι τ m α) : ParserT ε ι τ m (β × Option ε) := fun it =>
+  loop it init it (.refl it)
+where
+  /-- Fold from iterator `cur`, which `it` progressed to, with accumulator `y`. -/
+  @[specialize]
+  loop [Iterators.Finite ι Id] (it : Iter (α := ι) τ) (y : β) (cur : Iter (α := ι) τ) (hcur : Progress cur it) :
+      m (Result ε it (β × Option ε)) := do
+    match ← p cur with
+    | .error _ => return .ok cur hcur (y, none)
+    | .ok rest₁ h₁ x =>
+      match ← f y x rest₁ with
+      | .error e => return .ok cur hcur (y, some e)
+      | .ok rest₂ h₂ y =>
+        match h₂.trans h₁ with
+        | .stay h => return .ok rest₂ (h ▸ hcur) (y, none)
+        | .moved h => loop it y rest₂ ((Progress.moved h).trans hcur)
+  termination_by cur.finitelyManySteps
+  decreasing_by exact h
 
 /--
 `foldlP f init p` folds the parser function `f` from left to right using `init` as an initial value
@@ -199,19 +202,22 @@ result of folding with the result of `stop`. If `p` fails before `stop` succeeds
 -/
 @[specialize]
 public def foldlUntil [Iterators.Finite ι Id] [Monad m] (f : γ → α → γ) (init : γ)
-    (stop : ParserT ε ι τ m β) (p : ParserT ε ι τ m α) : ParserT ε ι τ m (γ × β) := fun it => do
-  match ← stop it with
-  | .ok rest h y => return .ok rest h (init, y)
-  | .error e =>
-    match ← p it with
-    | .error e => return .error e
-    | .ok _ (.stay _) _ => return .error e
-    | .ok rest (.moved h) x =>
-      match ← foldlUntil f (f init x) stop p rest with
-      | .ok rest' h' z => return .ok rest' (h'.trans (.moved h)) z
+    (stop : ParserT ε ι τ m β) (p : ParserT ε ι τ m α) : ParserT ε ι τ m (γ × β) := fun it =>
+  loop it init it (.refl it)
+where
+  /-- Fold from iterator `cur`, which `it` progressed to, with accumulator `y`. -/
+  @[specialize]
+  loop [Iterators.Finite ι Id] (it : Iter (α := ι) τ) (y : γ) (cur : Iter (α := ι) τ) (hcur : Progress cur it) :
+      m (Result ε it (γ × β)) := do
+    match ← stop cur with
+    | .ok rest h z => return .ok rest (h.trans hcur) (y, z)
+    | .error e =>
+      match ← p cur with
       | .error e => return .error e
-termination_by it => it.finitelyManySteps
-decreasing_by exact h
+      | .ok _ (.stay _) _ => return .error e
+      | .ok rest (.moved h) x => loop it (f y x) rest ((Progress.moved h).trans hcur)
+  termination_by cur.finitelyManySteps
+  decreasing_by exact h
 
 /-! # `take` family -/
 
