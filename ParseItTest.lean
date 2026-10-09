@@ -7,3 +7,4 @@ import ParseItTest.Roman
 import ParseItTest.JSON
 import ParseItTest.BNF
 import ParseItTest.Readme
+import ParseItTest.Tutorial
