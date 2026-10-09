@@ -7,6 +7,9 @@ backtracking is just reusing an earlier iterator. Every successful parse records
 consumed input, and this lets all repetition combinators be total: there is no `partial` in the
 library, and repeating a parser that consumes nothing stops instead of looping forever.
 
+Source documentation is available at
+[www.dorais.org/lean4-parseit/doc/](https://www.dorais.org/lean4-parseit/doc/).
+
 ## Usage
 
 Add this dependency to your project's `lakefile.toml`:
