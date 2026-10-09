@@ -79,3 +79,17 @@ def parseSum : Parser E CharIterator Char Int :=
   |>.toOption) == some #['a', 'b']
 #guard (Parser.parseList (ε := Error.Trivial) (sepBy (token 0) anyToken) [1, 0, 2, 0, 3]
   |>.toOption) == some #[1, 2, 3]
+
+-- core's `String.Slice.chars` iterator
+def word {ε ι} [Iterator ι Id Char] [Iterators.Finite ι Id] [Error ε ι Char] :
+    Parser ε ι Char (Array Char) :=
+  takeMany1 ASCII.alpha <* endOfInput
+
+#guard (Parser.parseChars "abc".toSlice word
+  (ε := Error.Basic (SliceChars "abc".toSlice))).toOption == some #['a', 'b', 'c']
+#guard (match Parser.parseChars "ab1".toSlice word
+    (ε := Error.Basic (SliceChars "ab1".toSlice)) with
+  | .error e => e.pos.byteIdx == 2 && e.token == some '1'
+  | .ok _ => false)
+#guard (Parser.parseChars "é∀x".toSlice (takeMany anyToken (ε := Error.Trivial))).toOption ==
+  some #['é', '∀', 'x']

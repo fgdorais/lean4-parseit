@@ -14,6 +14,8 @@ Iterators for common parser inputs, with `HasPos` instances for error reporting:
 
 * `CharIterator` iterates over the characters of a `String.Slice`. Unlike `String.Slice.chars`,
   its type does not depend on the slice, so parsers can name it.
+* `SliceChars s` is the iterator of core's `s.chars`. Its state is only a position, so steps
+  allocate nothing, but its type depends on `s`. It suits parsers generic in the iterator type.
 * `ByteIterator` iterates over the bytes of a `ByteArray`.
 * `BitIterator` iterates over the bits of a `BitVec`, least significant bit first.
 * Core's `ArrayIterator` (from `Array.iter`) reports its index as the position.
@@ -82,6 +84,18 @@ public def remaining (it : Iter (α := CharIterator) Char) : String.Slice :=
   it.internalState.slice.sliceFrom it.internalState.pos
 
 end CharIterator
+
+/--
+Iterator state of core's `s.chars`, whose state is only a position in `s`. Steps allocate nothing,
+unlike `CharIterator`, but the type depends on `s`.
+-/
+public abbrev SliceChars (s : String.Slice) : Type :=
+  (fun {α : Type} (_ : Iter (α := α) Char) => α) s.chars
+
+/-- Positions are byte offsets into the slice. -/
+public instance {s : String.Slice} : HasPos (SliceChars s) Char where
+  Pos := String.Pos.Raw
+  pos it := it.internalState.inner.internalState.currPos.offset
 
 /-- Iterator over the bytes of a `ByteArray`. -/
 public structure ByteIterator where
@@ -226,6 +240,14 @@ public def parseSlice (p : Parser ε CharIterator Char α) (s : String.Slice) : 
 @[inline]
 public def parseString (p : Parser ε CharIterator Char α) (s : String) : Except ε α :=
   p.parseSlice s.toSlice
+
+/--
+Run `p` on the characters of `s` using core's `s.chars` iterator. This is faster than `parseSlice`
+for parsers that are generic in the iterator type.
+-/
+@[inline]
+public def parseChars (s : String.Slice) (p : Parser ε (SliceChars s) Char α) : Except ε α :=
+  p.parse s.chars
 
 /-- Run `p` on the bytes of `data`. -/
 @[inline]
