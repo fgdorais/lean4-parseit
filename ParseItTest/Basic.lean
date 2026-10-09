@@ -33,6 +33,8 @@ open ParseIt Std
   "error: unexpected input 'd' at 0 or unexpected input 'd' at 0"
 #guard parseArray #['d'] Simple (withErrorMessage "expected a" (token 'a')) ==
   "error: unexpected input 'd' at 0; expected a at 0"
+#guard parseArray #['d'] Simple (first [token 'a', token 'b']) ==
+  "error: unexpected input 'd' at 0 or unexpected input 'd' at 0"
 
 -- positions
 #guard parseArray #['a', 'b'] Basic (token 'a' *> getPos) == "ok 1 at 1"

@@ -265,13 +265,19 @@ public def test [Monad m] (p : ParserT ε ι τ m α) : ParserT ε ι τ m Bool�
 /--
 `first ps` tries the parsers from the list `ps` in order until one succeeds and returns its result.
 
-When all parsers fail, their errors are folded with `combine`, starting from an unexpected input
-error at the current position. The default is `Error.merge`.
+When all parsers fail, their errors are folded with `combine`, from left to right. The default is
+`Error.merge`. When `ps` is empty, an unexpected input error at the current position is reported.
 -/
 public def first [Monad m] [Error ε ι τ] (ps : List (ParserT ε ι τ m α))
     (combine : ε → ε → ε := Error.merge (ι := ι)) : ParserT ε ι τ m α :=
-  fun it => loop ps (Error.unexpected it none) it
+  fun it => match ps with
+    | [] => pure (.error (Error.unexpected it none))
+    | p :: ps => do
+      match ← p it with
+      | .ok rest h x => pure (.ok rest h x)
+      | .error e => loop ps e it
 where
+  /-- Try the parsers `ps` after earlier alternatives failed with error `e`. -/
   loop : List (ParserT ε ι τ m α) → ε → ParserT ε ι τ m α
   | [], e, _ => pure (.error e)
   | p :: ps, e, it => do
