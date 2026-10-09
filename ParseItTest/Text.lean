@@ -33,6 +33,17 @@ def parseStr {α} [Repr α] (s : String) (p : Parser E CharIterator Char α) : S
 #guard parseStr "0b101" (ASCII.parseNat (decimalOnly := false)) == "ok 5"
 #guard parseStr "017" (ASCII.parseNat (decimalOnly := false)) == "ok 15"
 #guard parseStr "0" (ASCII.parseNat (decimalOnly := false)) == "ok 0"
+-- long numbers span several digit chunks
+#guard let s := String.join (List.replicate 13 "1234567890"); parseStr s ASCII.parseNat == s!"ok {s.toNat!}"
+#guard let s := "00" ++ String.join (List.replicate 7 "9"); parseStr s ASCII.parseNat == "ok 9999999"
+#guard parseStr ("0x" ++ String.join (List.replicate 9 "fF")) (ASCII.parseNat (decimalOnly := false)) ==
+  s!"ok {2 ^ 72 - 1}"
+#guard parseStr ("0b" ++ String.join (List.replicate 130 "1")) (ASCII.parseNat (decimalOnly := false)) ==
+  s!"ok {2 ^ 130 - 1}"
+#guard parseStr ("0" ++ String.join (List.replicate 45 "7")) (ASCII.parseNat (decimalOnly := false)) ==
+  s!"ok {2 ^ 135 - 1}"
+#guard parseStr ("1." ++ String.join (List.replicate 40 "0") ++ "1e40") (ASCII.parseScientific Float) ==
+  s!"ok {repr (1e40 : Float)}"
 #guard parseStr "-42" ASCII.parseInt == "ok -42"
 #guard parseStr "+42" ASCII.parseInt == "ok 42"
 #guard parseStr "1.5e2" (ASCII.parseScientific Float) == "ok 150.000000"
