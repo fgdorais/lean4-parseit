@@ -110,12 +110,16 @@ where
       if rest.isEmpty then pure acc else do
         let (c, rest) ← tokenMap fun c =>
           if c.val < 0x80 then
-            -- ASCII fast path: avoid allocating the case folding as a string
+            -- ASCII fast path
             let f := if 'A' ≤ c && c ≤ 'Z' then Char.ofNat (c.val + 0x20).toNat else c
             (rest.dropPrefix? f).map (c, ·)
           else
-            let f := Unicode.getCaseFolding c
-            if f.isEmpty then none else (rest.dropPrefix? f).map (c, ·)
+            Unicode.withCaseFolding c fun f fs =>
+              match rest.dropPrefix? f, fs with
+              | some rest, [] => some (c, rest)
+              | some rest, fs =>
+                (fs.foldlM (fun (r : String.Slice) f => r.dropPrefix? f) rest).map (c, ·)
+              | none, _ => none
         loop n rest (acc.push c)
 
 /-!
