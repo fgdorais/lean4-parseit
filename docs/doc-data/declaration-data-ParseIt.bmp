@@ -1,0 +1,1 @@
+{"declarations":[],"imports":["Init","ParseIt.Basic","ParseIt.Char","ParseIt.Combinators","ParseIt.Error","ParseIt.Input","ParseIt.Prelude"],"instances":[],"name":"ParseIt"}
