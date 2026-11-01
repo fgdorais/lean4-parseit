@@ -17,3 +17,8 @@ rev = "main"
 name = "UnicodeFormat"
 git = "https://github.com/fgdorais/lean4-unicode-format"
 rev = "main"
+
+[[require]]
+name = "lean4-scalar-arrays"
+git = "https://github.com/fgdorais/lean4-scalar-arrays"
+rev = "main"

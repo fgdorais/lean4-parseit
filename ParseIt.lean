@@ -9,5 +9,6 @@ public import ParseIt.Prelude
 public import ParseIt.Basic
 public import ParseIt.Combinators
 public import ParseIt.Input
+public import ParseIt.ScalarArray
 public import ParseIt.Char
 public import ParseIt.UTF
