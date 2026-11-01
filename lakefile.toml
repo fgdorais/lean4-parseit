@@ -12,3 +12,8 @@ globs = ["ParseItTest", "ParseItTest.+", "ParseItExamples.+"]
 name = "UnicodeBasic"
 git = "https://github.com/fgdorais/lean4-unicode-basic"
 rev = "main"
+
+[[require]]
+name = "UnicodeFormat"
+git = "https://github.com/fgdorais/lean4-unicode-format"
+rev = "main"
