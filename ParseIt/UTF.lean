@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 module
 
-public import ParseIt.Input
+public import ParseIt.ScalarArray
 public import UnicodeFormat
 
 /-! # UTF-8, UTF-16 and UTF-32 inputs
@@ -23,21 +23,6 @@ there. A parser that goes on after ill-formed input instead can consume it with 
 
 namespace ParseIt
 open Std Unicode ScalarArray
-
-/-- Positions are indices in the underlying array. -/
-public instance : HasPos UInt8Array.SliceIterator UInt8 where
-  Pos := Nat
-  pos it := it.toUInt8Slice.start
-
-/-- Positions are indices in the underlying array. -/
-public instance : HasPos UInt16Array.SliceIterator UInt16 where
-  Pos := Nat
-  pos it := it.toUInt16Slice.start
-
-/-- Positions are indices in the underlying array. -/
-public instance : HasPos UInt32Array.SliceIterator UInt32 where
-  Pos := Nat
-  pos it := it.toUInt32Slice.start
 
 /-- Positions are those of the input iterator, at the start of the next token to decode. -/
 public instance {δ ι τ σ : Type} [Decoder δ τ σ] [Iterator ι Id τ] [Iterators.Productive ι Id]
