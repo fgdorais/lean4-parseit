@@ -18,7 +18,7 @@ encoded input: byte offsets for UTF-8, and code unit indices for UTF-16 and UTF-
 A strict decoding iterator ends at the first ill-formed input, so a parser sees the end of the
 input there. `Parser.parseDecoded` and the `parseUTF8`, `parseUTF16` and `parseUTF32` runners
 report the ill-formed input as an error when the parser stops where decoding stopped, or fails
-there.
+there. A parser that goes on after ill-formed input instead can consume it with `illFormed`.
 -/
 
 namespace ParseIt
@@ -53,6 +53,21 @@ public abbrev UTF16Iterator : Type := DecodeIterator UTF16 UInt16Array.SliceIter
 
 /-- The iterator over the characters of UTF-32 code units. -/
 public abbrev UTF32Iterator : Type := DecodeIterator UTF32 UInt32Array.SliceIterator
+
+/--
+`illFormed` consumes the ill-formed input where a strict decoding iterator stopped, and returns its
+kind, so that a parser can report it and go on after it. Fails, consuming nothing, at well-formed
+input and at the end of the input. On a lossy decoding iterator, it consumes ill-formed input
+before it is replaced with U+FFFD.
+-/
+@[inline]
+public def illFormed {ε δ ι τ : Type} {m : Type → Type} [Decoder δ τ Char] [Iterator ι Id τ]
+    [Iterators.Finite ι Id] [Pure m] [Error ε (DecodeIterator δ ι) Char] :
+    ParserT ε (DecodeIterator δ ι) Char m DecodeError.Kind :=
+  fun it =>
+    pure <| match it.decodeContinue? with
+      | some (k, ⟨next, h⟩) => .ok next (.moved h) k
+      | none => .error (Error.unexpected it (nextToken it (fun _ _ c => some c) (fun _ => none)))
 
 namespace Parser
 variable {ε δ ι τ α : Type}

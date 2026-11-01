@@ -75,3 +75,40 @@ def sumSimple : Parser (Error.Simple UTF16Iterator) UTF16Iterator Char Int :=
 -- A failed parse keeps its error and gets a message about the ill-formed input.
 #guard (show? (sumSimple.parseUTF16 [0x78, 0x31, 0xD800].toUInt16Array)).endsWith
   "; unpaired surrogate at 2"
+
+/-! Going on after ill-formed input -/
+
+/-- Integers separated by spaces, and each ill-formed input with its position. -/
+def intsOrIll (ι : Type) [Iterator ι Id Char] [Iterators.Finite ι Id] [HasPos ι Char]
+    [LE (HasPos.Pos ι)] [DecidableLE (HasPos.Pos ι)] (item : Parser (Error.Basic ι) ι Char String) :
+    Parser (Error.Basic ι) ι Char (Array String) :=
+  takeMany (dropMany space *> ((toString <$> ASCII.parseInt) <|> item)) <* dropMany space
+    <* endOfInput
+
+def ill8 : Parser (Error.Basic UTF8Iterator) UTF8Iterator Char String := do
+  let pos ← getPos
+  let k ← illFormed
+  return s!"<{k} at {pos}>"
+
+def ill16 : Parser (Error.Basic UTF16Iterator) UTF16Iterator Char String := do
+  let pos ← getPos
+  let k ← illFormed
+  return s!"<{k} at {pos}>"
+
+#guard show? ((intsOrIll UTF8Iterator ill8).parseUTF8 "12 34".toUTF8) == "ok #[12, 34]"
+#guard show? ((intsOrIll UTF8Iterator ill8).parseUTF8
+  [0x31, 0x20, 0xFF, 0x32, 0xC0, 0xAF].toByteArray) ==
+  "ok #[1, <ill-formed UTF-8 at 2>, 2, <ill-formed UTF-8 at 4>, <ill-formed UTF-8 at 5>]"
+-- A maximal subpart is consumed as a whole.
+#guard show? ((intsOrIll UTF8Iterator ill8).parseUTF8 [0x37, 0xE2, 0x88, 0x38].toByteArray) ==
+  "ok #[7, <ill-formed UTF-8 at 1>, 8]"
+#guard show? ((intsOrIll UTF16Iterator ill16).parseUTF16 [0x31, 0xD800, 0x32].toUInt16Array) ==
+  "ok #[1, <unpaired surrogate at 1>, 2]"
+-- Syntax errors are still errors.
+#guard show? ((intsOrIll UTF8Iterator ill8).parseUTF8 "1 x".toUTF8) ==
+  "error unexpected input 'x' at 2"
+-- `illFormed` fails at well-formed input and at the end of the input.
+#guard show? (Parser.parseUTF8 (illFormed : Parser (Error.Basic UTF8Iterator) UTF8Iterator Char _)
+  "a".toUTF8) == "error unexpected input 'a' at 0"
+#guard show? (Parser.parseUTF8 (illFormed : Parser (Error.Basic UTF8Iterator) UTF8Iterator Char _)
+  ByteArray.empty) == "error unexpected input at 0"
