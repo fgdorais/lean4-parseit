@@ -7,7 +7,7 @@ module
 public import ParseIt.Input
 public import UnicodeFormat
 
-/-! # Encoded inputs
+/-! # UTF-8, UTF-16 and UTF-32 inputs
 
 Parsers over the characters of UTF-8, UTF-16 and UTF-32 input, using the decoding iterators of
 [UnicodeFormat](https://github.com/fgdorais/lean4-unicode-format). Positions are those of the
