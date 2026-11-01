@@ -9,6 +9,8 @@ public import UnicodeFormat
 
 /-! # UTF-8, UTF-16 and UTF-32 inputs
 
+**Experimental.** This module's API may change in any release.
+
 Parsers over the characters of UTF-8, UTF-16 and UTF-32 input, using the decoding iterators of
 [UnicodeFormat](https://github.com/fgdorais/lean4-unicode-format). Positions are those of the
 encoded input: byte offsets for UTF-8, and code unit indices for UTF-16 and UTF-32.
