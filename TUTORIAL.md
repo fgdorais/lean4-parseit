@@ -262,8 +262,9 @@ def ident : P String := lexeme do
 ## Other inputs
 
 Parsers work with any pure `Std.Iter`, not just strings. ParseIt provides `parseByteArray`,
-`parseBitVec`, `parseArray`, `parseVector` and `parseList`, and token parsers such as `token`,
-`tokenFilter` and `tokenMap` work with any token type.
+`parseBitVec`, `parseArray`, `parseVector` and `parseList`, and a runner for each array type of
+[lean4-scalar-arrays](https://github.com/fgdorais/lean4-scalar-arrays), such as `parseUInt8Array`.
+Token parsers such as `token`, `tokenFilter` and `tokenMap` work with any token type.
 
 For example, a parser can read the output of a separate lexer. Here the tokens form an inductive
 type and are read from an array:

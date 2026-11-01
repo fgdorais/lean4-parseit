@@ -53,6 +53,10 @@ New to ParseIt? Start with the [tutorial](TUTORIAL.md). Coming from lean4-parser
 * `ParseIt.Input`: inputs for `String.Slice`, `ByteArray`, `BitVec`, `Array`, `Vector` and `List`,
   with `parseString`, `parseSlice`, `parseByteArray`, `parseBitVec`, `parseArray`, `parseVector`
   and `parseList`.
+* `ParseIt.ScalarArray`: inputs for the arrays of
+  [lean4-scalar-arrays](https://github.com/fgdorais/lean4-scalar-arrays), with a runner for each
+  array type, such as `parseUInt8Array` and `parseFloat64Array`, and `parseFloatArray` for core's
+  `FloatArray`.
 * `ParseIt.Char`: ASCII character and numeric parsers, and Unicode property parsers based on
   [UnicodeBasic](https://github.com/fgdorais/lean4-unicode-basic).
 * `ParseIt.UTF` (experimental): parsers over UTF-8, UTF-16 and UTF-32 input, with `parseUTF8`,
