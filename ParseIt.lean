@@ -10,3 +10,4 @@ public import ParseIt.Basic
 public import ParseIt.Combinators
 public import ParseIt.Input
 public import ParseIt.Char
+public import ParseIt.Encoded

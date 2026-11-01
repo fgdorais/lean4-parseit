@@ -3,6 +3,7 @@ import ParseItTest.Combinators
 import ParseItTest.Repeat
 import ParseItTest.Text
 import ParseItTest.Unicode
+import ParseItTest.Encoded
 import ParseItTest.Roman
 import ParseItTest.JSON
 import ParseItTest.BNF

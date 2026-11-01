@@ -55,6 +55,9 @@ New to ParseIt? Start with the [tutorial](TUTORIAL.md). Coming from lean4-parser
   and `parseList`.
 * `ParseIt.Char`: ASCII character and numeric parsers, and Unicode property parsers based on
   [UnicodeBasic](https://github.com/fgdorais/lean4-unicode-basic).
+* `ParseIt.Encoded`: parsers over UTF-8, UTF-16 and UTF-32 input, with `parseUTF8`, `parseUTF16` and
+  `parseUTF32`, based on [UnicodeFormat](https://github.com/fgdorais/lean4-unicode-format). Errors
+  are at positions in the encoded input, and ill-formed input is reported as an error.
 
 ## Acknowledgements
 
