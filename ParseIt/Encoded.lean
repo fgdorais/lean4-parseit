@@ -57,9 +57,9 @@ variable {ε δ ι τ α : Type}
 
 /--
 `p.parseDecoded it` runs `p` on the characters of the decoding iterator `it`. When `it` is strict
-and stops at ill-formed input, that input is reported as an error, at its position, if `p` stops
-there or fails there. When `p` fails before, its error is merged with that of the ill-formed input,
-so with the furthest position rule of `Error.Basic` the error of `p` is reported.
+and stops at ill-formed input, and `p` succeeds and stops there, that input is reported as an error
+at its position. When `p` fails, its error is kept, and a message about the first ill-formed input
+is added to it, which `Error.Simple` records and `Error.Basic` discards.
 -/
 public def parseDecoded [Decoder δ τ Char] [Iterator ι Id τ] [Iterators.Finite ι Id]
     [Error ε (DecodeIterator δ ι) Char] (p : Parser ε (DecodeIterator δ ι) Char α)
@@ -75,7 +75,7 @@ public def parseDecoded [Decoder δ τ Char] [Iterator ι Id τ] [Iterators.Fini
     if it.decodeIsLossy then .error e
     else
       match it.decodeFailure? with
-      | some (k, bad) => .error (Error.merge (ι := DecodeIterator δ ι) e (ill bad k))
+      | some (k, bad) => .error (Error.addMessage e bad (toString k))
       | none => .error e
 
 /-- Run `p` on the characters of the UTF-8 bytes `b`, reporting ill-formed bytes as errors.

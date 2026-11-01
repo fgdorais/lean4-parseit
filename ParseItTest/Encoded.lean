@@ -26,6 +26,9 @@ def show? {ε α : Type} [ToString ε] [ToString α] : Except ε α → String
 -- Decoding stops at the unpaired surrogate, which is reported there.
 #guard show? ((sumOf UTF16Iterator).parseUTF16 [0x31, 0x32, 0xD800, 0x33].toUInt16Array) ==
   "error unexpected input at 2"
+-- A parse that fails before the unpaired surrogate reports its own error.
+#guard show? ((sumOf UTF16Iterator).parseUTF16 [0x78, 0x31, 0xD800].toUInt16Array) ==
+  "error unexpected input 'x' at 0"
 -- A parse that stops before the unpaired surrogate succeeds.
 #guard show? (Parser.parseUTF16
   (anyToken : Parser (Error.Basic UTF16Iterator) UTF16Iterator Char Char)
@@ -69,3 +72,6 @@ def sumSimple : Parser (Error.Simple UTF16Iterator) UTF16Iterator Char Int :=
 
 #guard (show? (sumSimple.parseUTF16 [0x31, 0xDC00].toUInt16Array)).endsWith
   "unexpected input at 1; unpaired surrogate at 1"
+-- A failed parse keeps its error and gets a message about the ill-formed input.
+#guard (show? (sumSimple.parseUTF16 [0x78, 0x31, 0xD800].toUInt16Array)).endsWith
+  "; unpaired surrogate at 2"
