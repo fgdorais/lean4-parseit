@@ -25,17 +25,17 @@ open Std Unicode ScalarArray
 /-- Positions are indices in the underlying array. -/
 public instance : HasPos UInt8Array.SliceIterator UInt8 where
   Pos := Nat
-  pos it := it.internalState.xs.start
+  pos it := it.toUInt8Slice.start
 
 /-- Positions are indices in the underlying array. -/
 public instance : HasPos UInt16Array.SliceIterator UInt16 where
   Pos := Nat
-  pos it := it.internalState.xs.start
+  pos it := it.toUInt16Slice.start
 
 /-- Positions are indices in the underlying array. -/
 public instance : HasPos UInt32Array.SliceIterator UInt32 where
   Pos := Nat
-  pos it := it.internalState.xs.start
+  pos it := it.toUInt32Slice.start
 
 /-- Positions are those of the input iterator, at the start of the next token to decode. -/
 public instance {δ ι τ σ : Type} [Decoder δ τ σ] [Iterator ι Id τ] [Iterators.Productive ι Id]
@@ -52,13 +52,6 @@ public abbrev UTF16Iterator : Type := DecodeIterator UTF16 UInt16Array.SliceIter
 /-- The iterator over the characters of UTF-32 code units. -/
 public abbrev UTF32Iterator : Type := DecodeIterator UTF32 UInt32Array.SliceIterator
 
-/-- A description of ill-formed input of kind `k`, for error messages. -/
-private def message : DecodeError.Kind → String
-  | .illFormedUTF8 => "ill-formed UTF-8"
-  | .unpairedSurrogate => "unpaired surrogate"
-  | .notScalarValue => "not a Unicode scalar value"
-  | .incompleteCodeUnit => "incomplete code unit"
-
 namespace Parser
 variable {ε δ ι τ α : Type}
 
@@ -72,20 +65,18 @@ public def parseDecoded [Decoder δ τ Char] [Iterator ι Id τ] [Iterators.Fini
     [Error ε (DecodeIterator δ ι) Char] (p : Parser ε (DecodeIterator δ ι) Char α)
     (it : Iter (α := DecodeIterator δ ι) Char) : Except ε α :=
   let ill (it : Iter (α := DecodeIterator δ ι) Char) (k : DecodeError.Kind) : ε :=
-    Error.addMessage (Error.unexpected it none) it (message k)
+    Error.addMessage (Error.unexpected it none) it (toString k)
   match p.run it with
   | .ok rest _ x =>
-    match if rest.internalState.lossy then none else rest.decodeError? with
+    match if rest.decodeIsLossy then none else rest.decodeError? with
     | none => .ok x
     | some k => .error (ill rest k)
   | .error e =>
-    if it.internalState.lossy then .error e
+    if it.decodeIsLossy then .error e
     else
-      let d := it.internalState.decoder
-      match Decoder.foldUntilError d (fun _ _ => ()) () it.decodeBase with
-      | (_, some (k, base)) =>
-        .error (Error.merge (ι := DecodeIterator δ ι) e (ill ⟨⟨d, false, base⟩⟩ k))
-      | (_, none) => .error e
+      match it.decodeFailure? with
+      | some (k, bad) => .error (Error.merge (ι := DecodeIterator δ ι) e (ill bad k))
+      | none => .error e
 
 /-- Run `p` on the characters of the UTF-8 bytes `b`, reporting ill-formed bytes as errors.
 Positions are byte offsets. -/
