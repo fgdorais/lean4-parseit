@@ -85,30 +85,43 @@ def intsOrIll (ι : Type) [Iterator ι Id Char] [Iterators.Finite ι Id] [HasPos
   takeMany (dropMany space *> ((toString <$> ASCII.parseInt) <|> item)) <* dropMany space
     <* endOfInput
 
-def ill8 : Parser (Error.Basic UTF8Iterator) UTF8Iterator Char String := do
+/-- The ill-formed input at the position of a decoding iterator, and its position. -/
+def ill {δ ι τ : Type} [Decoder δ τ Char] [Iterator ι Id τ] [Iterators.Finite ι Id]
+    [HasPos ι τ] [ToString (HasPos.Pos ι)] [LE (HasPos.Pos ι)] [DecidableLE (HasPos.Pos ι)] :
+    Parser (Error.Basic (DecodeIterator δ ι)) (DecodeIterator δ ι) Char String := do
   let pos ← getPos
-  let k ← illFormed
+  let k ← UTF.illFormed
   return s!"<{k} at {pos}>"
 
-def ill16 : Parser (Error.Basic UTF16Iterator) UTF16Iterator Char String := do
-  let pos ← getPos
-  let k ← illFormed
-  return s!"<{k} at {pos}>"
-
-#guard show? ((intsOrIll UTF8Iterator ill8).parseUTF8 "12 34".toUTF8) == "ok #[12, 34]"
-#guard show? ((intsOrIll UTF8Iterator ill8).parseUTF8
+#guard show? ((intsOrIll UTF8Iterator ill).parseUTF8 "12 34".toUTF8) == "ok #[12, 34]"
+#guard show? ((intsOrIll UTF8Iterator ill).parseUTF8
   [0x31, 0x20, 0xFF, 0x32, 0xC0, 0xAF].toByteArray) ==
   "ok #[1, <ill-formed UTF-8 at 2>, 2, <ill-formed UTF-8 at 4>, <ill-formed UTF-8 at 5>]"
 -- A maximal subpart is consumed as a whole.
-#guard show? ((intsOrIll UTF8Iterator ill8).parseUTF8 [0x37, 0xE2, 0x88, 0x38].toByteArray) ==
+#guard show? ((intsOrIll UTF8Iterator ill).parseUTF8 [0x37, 0xE2, 0x88, 0x38].toByteArray) ==
   "ok #[7, <ill-formed UTF-8 at 1>, 8]"
-#guard show? ((intsOrIll UTF16Iterator ill16).parseUTF16 [0x31, 0xD800, 0x32].toUInt16Array) ==
+#guard show? ((intsOrIll UTF16Iterator ill).parseUTF16 [0x31, 0xD800, 0x32].toUInt16Array) ==
   "ok #[1, <unpaired surrogate at 1>, 2]"
+#guard show? ((intsOrIll UTF32Iterator ill).parseUTF32
+  [0x31, 0x110000, 0x32, 0xDC00].toUInt32Array) ==
+  "ok #[1, <not a Unicode scalar value at 1>, 2, <not a Unicode scalar value at 3>]"
+-- On a lossy decoding iterator, ill-formed input is consumed before it is replaced with U+FFFD.
+#guard show? ((intsOrIll UTF8Iterator ill).parse
+  (UTF8.decodeIterLossy [0x31, 0x20, 0xFF, 0x32].toUInt8Array.iter)) ==
+  "ok #[1, <ill-formed UTF-8 at 2>, 2]"
 -- Syntax errors are still errors.
-#guard show? ((intsOrIll UTF8Iterator ill8).parseUTF8 "1 x".toUTF8) ==
+#guard show? ((intsOrIll UTF8Iterator ill).parseUTF8 "1 x".toUTF8) ==
   "error unexpected input 'x' at 2"
--- `illFormed` fails at well-formed input and at the end of the input.
-#guard show? (Parser.parseUTF8 (illFormed : Parser (Error.Basic UTF8Iterator) UTF8Iterator Char _)
-  "a".toUTF8) == "error unexpected input 'a' at 0"
-#guard show? (Parser.parseUTF8 (illFormed : Parser (Error.Basic UTF8Iterator) UTF8Iterator Char _)
-  ByteArray.empty) == "error unexpected input at 0"
+-- `UTF.illFormed` fails at well-formed input and at the end of the input.
+#guard show? (Parser.parseUTF8
+  (UTF.illFormed : Parser (Error.Basic UTF8Iterator) UTF8Iterator Char _) "a".toUTF8) ==
+  "error unexpected input 'a' at 0"
+#guard show? (Parser.parseUTF8
+  (UTF.illFormed : Parser (Error.Basic UTF8Iterator) UTF8Iterator Char _) ByteArray.empty) ==
+  "error unexpected input at 0"
+-- When the parse fails later, the message is still about the first ill-formed input.
+def intsOrIllSimple : Parser (Error.Simple UTF8Iterator) UTF8Iterator Char (Array String) :=
+  takeMany (dropMany space *> ((toString <$> ASCII.parseInt) <|>
+    (do return s!"<{← UTF.illFormed}>"))) <* endOfInput
+#guard (show? (intsOrIllSimple.parseUTF8 [0x31, 0x20, 0xFF, 0x20, 0x78].toByteArray)).endsWith
+  "; ill-formed UTF-8 at 2"

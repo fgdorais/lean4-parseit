@@ -58,7 +58,7 @@ New to ParseIt? Start with the [tutorial](TUTORIAL.md). Coming from lean4-parser
 * `ParseIt.UTF` (experimental): parsers over UTF-8, UTF-16 and UTF-32 input, with `parseUTF8`,
   `parseUTF16` and `parseUTF32`, based on
   [UnicodeFormat](https://github.com/fgdorais/lean4-unicode-format). Errors are at positions in the
-  encoded input, and ill-formed input is reported as an error, or consumed with `illFormed` by
+  encoded input, and ill-formed input is reported as an error, or consumed with `UTF.illFormed` by
   parsers that go on after it.
 
 ## Acknowledgements
