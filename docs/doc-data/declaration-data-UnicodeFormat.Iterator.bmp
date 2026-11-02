@@ -1,0 +1,1 @@
+{"declarations":[],"imports":["Init","UnicodeFormat.Iterator.Basic","UnicodeFormat.Iterator.Bytes","UnicodeFormat.Iterator.EncodingScheme","UnicodeFormat.Iterator.UTF16","UnicodeFormat.Iterator.UTF32","UnicodeFormat.Iterator.UTF8"],"instances":[],"name":"UnicodeFormat.Iterator"}

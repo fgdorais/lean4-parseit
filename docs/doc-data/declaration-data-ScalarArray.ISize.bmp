@@ -1,0 +1,1 @@
+{"declarations":[],"imports":["Init","ScalarArray.ISize.Array","ScalarArray.ISize.Basic","ScalarArray.ISize.Decidable","ScalarArray.ISize.InPlace","ScalarArray.ISize.Lemmas","ScalarArray.ISize.Slice"],"instances":[],"name":"ScalarArray.ISize"}

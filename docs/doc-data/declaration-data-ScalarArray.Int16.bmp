@@ -1,0 +1,1 @@
+{"declarations":[],"imports":["Init","ScalarArray.Int16.Array","ScalarArray.Int16.Basic","ScalarArray.Int16.Decidable","ScalarArray.Int16.InPlace","ScalarArray.Int16.Lemmas","ScalarArray.Int16.Slice"],"instances":[],"name":"ScalarArray.Int16"}
