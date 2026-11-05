@@ -25,10 +25,64 @@ jobs:
           token: ${{ secrets.PARSEIT_TOKEN }}
 
       - name: Merge main into nightly-testing
+        id: merge
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
-          git merge origin/main --no-commit --strategy-option ours --allow-unrelated-histories
-          git restore --staged lean-toolchain lake-manifest.json
+          git merge origin/main --no-commit --no-ff --strategy-option ours --allow-unrelated-histories
+          # nightly-testing keeps its own toolchain and manifest
+          git checkout HEAD -- lean-toolchain lake-manifest.json
+          # take main's lakefile but keep nightly-testing's dependency revisions
+          git show HEAD:lakefile.toml > "$RUNNER_TEMP/nightly-lakefile.toml"
+          git show origin/main:lakefile.toml > lakefile.toml
+          python3 - "$RUNNER_TEMP/nightly-lakefile.toml" lakefile.toml <<'PY'
+          import re, sys, tomllib
+          with open(sys.argv[1], "rb") as f:
+              revs = {r["name"]: r["rev"] for r in tomllib.load(f).get("require", []) if "rev" in r}
+          with open(sys.argv[2]) as f:
+              lines = f.read().splitlines(keepends=True)
+          heads = [i for i, l in enumerate(lines) if re.match(r"\s*\[", l)] + [len(lines)]
+          out = lines[:heads[0]]
+          for a, b in zip(heads, heads[1:]):
+              block = lines[a:b]
+              if block[0].strip() == "[[require]]":
+                  name = tomllib.loads("".join(block[1:])).get("name")
+                  if name in revs:
+                      rev = 'rev = "%s"\n' % revs[name]
+                      for i, l in enumerate(block):
+                          if re.match(r"\s*rev\s*=", l):
+                              block[i] = rev
+                              break
+                      else:
+                          n = len(block)
+                          while n > 1 and not block[n - 1].strip():
+                              n -= 1
+                          block.insert(n, rev)
+              out += block
+          with open(sys.argv[2], "w") as f:
+              f.write("".join(out))
+          PY
+          git add lakefile.toml
+          if git diff --cached --quiet HEAD -- lakefile.toml; then
+            echo "lakefile_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "lakefile_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Lean
+        if: steps.merge.outputs.lakefile_changed == 'true'
+        uses: leanprover/lean-action@f061402b660e0c34644504b324e830f2991d4865 # v1.6.1
+        with:
+          auto-config: false
+          use-github-cache: false
+
+      - name: Update manifest
+        if: steps.merge.outputs.lakefile_changed == 'true'
+        run: |
+          lake update --keep-toolchain
+          git add lake-manifest.json
+
+      - name: Commit and push
+        run: |
           git commit --allow-empty -m "chore: merge main into nightly-testing"
           git push origin nightly-testing
