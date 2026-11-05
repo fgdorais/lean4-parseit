@@ -5,7 +5,7 @@ on:
     branches: [ "main", "nightly-testing" ]
 
 concurrency:
-  group: cd-${{ github.head_ref }}
+  group: cd-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
