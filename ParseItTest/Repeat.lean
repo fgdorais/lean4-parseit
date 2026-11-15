@@ -11,6 +11,9 @@ open ParseIt Std
   "ok ['a', 'a'] at 3"
 -- foldr retries with fewer occurrences when `q` fails
 #guard parseBasic "aa" (foldr List.cons (token 'a') (token 'a' *> pure [])) == "ok ['a'] at 2"
+-- when every attempt fails, foldr merges their errors
+#guard parseBasic "aac" (foldr List.cons (token 'a') (token 'b' *> pure [])) ==
+  "error: unexpected input 'c' at 2"
 
 -- take family
 #guard parseBasic "aaab" (take 2 (token 'a')) == "ok #['a', 'a'] at 2"
@@ -25,6 +28,11 @@ open ParseIt Std
 #guard parseBasic "aa" (takeUntil (token 'b') anyToken) == "error: unexpected input at 2"
 -- `takeUntil` with a parser that consumes nothing reports the error from `stop`
 #guard parseBasic "a" (takeUntil (token 'b') (pure 'x')) == "error: unexpected input 'a' at 0"
+-- when `p` fails, the errors of `stop` and `p` are merged
+#guard parseBasic "ac" (takeUntil (token 'a' *> token 'b') (token 'x')) ==
+  "error: unexpected input 'c' at 1"
+#guard parseBasic "xac" (dropUntil (token 'a' *> token 'b') (token 'x')) ==
+  "error: unexpected input 'c' at 2"
 
 -- drop family
 #guard parseBasic "aab" (drop 2 (token 'a') *> anyToken) == "ok 'b' at 3"

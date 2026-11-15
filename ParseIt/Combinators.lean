@@ -147,24 +147,35 @@ public def foldl [Iterators.Finite ι Id] [Monad m] (f : β → α → β) (init
   foldlP (fun y x => pure (f y x)) init p
 
 /--
+Run `q` from `it` after an attempt failed with error `e`. If `q` fails too, both errors are merged,
+as in `p <|> q`.
+-/
+@[inline]
+private def recover [Monad m] [Error ε ι τ] (e : ε) (q : ParserT ε ι τ m α) :
+    ParserT ε ι τ m α := fun it => do
+  match ← q it with
+  | .ok rest h x => return .ok rest h x
+  | .error e' => return .error (Error.merge (ι := ι) e e')
+
+/--
 `foldr f p q` parses `p` repeatedly until it fails and then parses `q`, folding `f` from right to
 left over the results, starting from the result of `q`. Repetition also ends right after `p`
 succeeds without consuming input. If `q` fails after some occurrences of `p` then the parse is
-retried with fewer occurrences.
+retried with fewer occurrences. If every attempt fails, their errors are merged.
 -/
 @[specialize]
-public def foldr [Iterators.Finite ι Id] [Monad m] (f : α → β → β) (p : ParserT ε ι τ m α)
-    (q : ParserT ε ι τ m β) : ParserT ε ι τ m β := fun it => do
+public def foldr [Iterators.Finite ι Id] [Monad m] [Error ε ι τ] (f : α → β → β)
+    (p : ParserT ε ι τ m α) (q : ParserT ε ι τ m β) : ParserT ε ι τ m β := fun it => do
   match ← p it with
   | .ok rest (.moved h) x =>
     match ← foldr f p q rest with
     | .ok rest' h' y => return .ok rest' (h'.trans (.moved h)) (f x y)
-    | .error _ => q it
+    | .error e => recover e q it
   | .ok rest (.stay h) x =>
     match ← q rest with
     | .ok rest' h' y => return .ok rest' (h'.trans (.stay h)) (f x y)
-    | .error _ => q it
-  | .error _ => q it
+    | .error e => recover e q it
+  | .error e => recover e q it
 termination_by it => it.finitelyManySteps
 decreasing_by exact h
 
@@ -197,11 +208,12 @@ public def foldlUpTo [Monad m] (n : Nat) (f : β → α → β) (init : β) (p :
 /--
 `foldlUntil f init stop p` folds the function `f` from left to right using `init` as an initial
 value over the results of zero or more occurrences of `p` until `stop` succeeds, and returns the
-result of folding with the result of `stop`. If `p` fails before `stop` succeeds then the error from
-`p` is reported. If `p` succeeds without consuming input then the error from `stop` is reported.
+result of folding with the result of `stop`. If `p` fails before `stop` succeeds then the errors
+from `stop` and `p` are merged. If `p` succeeds without consuming input then the error from `stop`
+is reported.
 -/
 @[inline]
-public def foldlUntil [Iterators.Finite ι Id] [Monad m] (f : γ → α → γ) (init : γ)
+public def foldlUntil [Iterators.Finite ι Id] [Monad m] [Error ε ι τ] (f : γ → α → γ) (init : γ)
     (stop : ParserT ε ι τ m β) (p : ParserT ε ι τ m α) : ParserT ε ι τ m (γ × β) := fun it =>
   loop it init it (.refl it)
 where
@@ -213,7 +225,7 @@ where
     | .ok rest h z => return .ok rest (h.trans hcur) (y, z)
     | .error e =>
       match ← p cur with
-      | .error e => return .error e
+      | .error e' => return .error (Error.merge (ι := ι) e e')
       | .ok _ (.stay _) _ => return .error e
       | .ok rest (.moved h) x => loop it (f y x) rest ((Progress.moved h).trans hcur)
   termination_by cur.finitelyManySteps
@@ -263,12 +275,12 @@ public def takeManyN [Iterators.Finite ι Id] [Monad m] (n : Nat) (p : ParserT �
 
 /--
 `takeUntil stop p` parses zero or more occurrences of `p` until `stop` succeeds, and returns the
-array of results of `p` and the result of `stop`. If `p` fails before `stop` succeeds then the error
-from `p` is reported. If `p` succeeds without consuming input then the error from `stop` is
-reported.
+array of results of `p` and the result of `stop`. If `p` fails before `stop` succeeds then the
+errors from `stop` and `p` are merged. If `p` succeeds without consuming input then the error from
+`stop` is reported.
 -/
 @[inline]
-public def takeUntil [Iterators.Finite ι Id] [Monad m] (stop : ParserT ε ι τ m β)
+public def takeUntil [Iterators.Finite ι Id] [Monad m] [Error ε ι τ] (stop : ParserT ε ι τ m β)
     (p : ParserT ε ι τ m α) : ParserT ε ι τ m (Array α × β) :=
   foldlUntil Array.push #[] stop p
 
@@ -310,7 +322,7 @@ public def dropManyN [Iterators.Finite ι Id] [Monad m] (n : Nat) (p : ParserT �
 result of `stop`, ignoring the results of `p`. Errors are reported as for `takeUntil`.
 -/
 @[inline]
-public def dropUntil [Iterators.Finite ι Id] [Monad m] (stop : ParserT ε ι τ m β)
+public def dropUntil [Iterators.Finite ι Id] [Monad m] [Error ε ι τ] (stop : ParserT ε ι τ m β)
     (p : ParserT ε ι τ m α) : ParserT ε ι τ m β :=
   Prod.snd <$> foldlUntil (γ := Unitᵤ) (fun _ _ => ⟨⟩) ⟨⟩ stop p
 
@@ -338,7 +350,7 @@ public def countUpTo [Monad m] (n : Nat) (p : ParserT ε ι τ m α) : ParserT �
 number of occurrences of `p` and the result of `stop`. Errors are reported as for `takeUntil`.
 -/
 @[inline]
-public def countUntil [Iterators.Finite ι Id] [Monad m] (stop : ParserT ε ι τ m β)
+public def countUntil [Iterators.Finite ι Id] [Monad m] [Error ε ι τ] (stop : ParserT ε ι τ m β)
     (p : ParserT ε ι τ m α) : ParserT ε ι τ m (Natᵤ × β) :=
   foldlUntil (fun n _ => ⟨n.val + 1⟩) 0 stop p
 
