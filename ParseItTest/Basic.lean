@@ -15,12 +15,17 @@ open ParseIt Std
 #guard parseArray #['x'] Basic (test (token 'x')) == "ok true at 1"
 #guard parseArray #['x'] Basic (test (token 'y')) == "ok false at 0"
 #guard parseArray #['x'] Basic (optional (token 'y') *> token 'x') == "ok 'x' at 1"
+-- the error of a failed option is kept as a hint
+#guard parseArray #['a', 'c'] Basic (option? (token 'a' *> token 'b') *> endOfInput) ==
+  "error: unexpected input 'c' at 1"
 
 -- `<|>` backtracks and `Basic` keeps the furthest error
 #guard parseArray #['a', 'c'] Basic ((token 'a' *> token 'b') <|> token 'x') ==
   "error: unexpected input 'c' at 1"
 #guard parseArray #['a', 'c'] Basic ((token 'a' *> token 'b') <|> (token 'a' *> token 'c')) ==
   "ok 'c' at 2"
+#guard parseArray #['a', 'c'] Basic (((token 'a' *> token 'b') <|> pure 'z') <* endOfInput) ==
+  "error: unexpected input 'c' at 1"
 
 -- first
 #guard parseArray #['c'] Basic (first [token 'a', token 'b', token 'c']) == "ok 'c' at 1"
@@ -35,6 +40,11 @@ open ParseIt Std
   "error: unexpected input 'd' at 0; expected a at 0"
 #guard parseArray #['d'] Simple (first [token 'a', token 'b']) ==
   "error: unexpected input 'd' at 0 or unexpected input 'd' at 0"
+-- hints list the alternatives given up on where the parse failed
+#guard parseArray #['c'] Simple (optional (token 'a') *> token 'b') ==
+  "error: unexpected input 'c' at 0 or unexpected input 'c' at 0"
+#guard parseArray #['a', 'c'] Simple (optional (token 'a') *> token 'b') ==
+  "error: unexpected input 'c' at 1"
 
 -- positions
 #guard parseArray #['a', 'b'] Basic (token 'a' *> getPos) == "ok 1 at 1"

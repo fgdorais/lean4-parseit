@@ -208,10 +208,10 @@ public def captureSlice {ε α : Type} {m : Type → Type} [Monad m]
     (p : ParserT ε CharIterator Char m α) : ParserT ε CharIterator Char m (α × String.Slice) :=
   fun it => do
     match ← p it with
-    | .ok rest h x =>
+    | .ok rest h x hint =>
       let s := it.internalState.slice
       let stop := s.pos! rest.internalState.pos.offset
-      return .ok rest h (x, s.slice! it.internalState.pos stop)
+      return .ok rest h (x, s.slice! it.internalState.pos stop) hint
     | .error e => return .error e
 
 namespace Parser

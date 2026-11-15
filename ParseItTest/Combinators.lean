@@ -5,7 +5,7 @@ open ParseIt Std
 /-- Value of a successful parse, if any. -/
 def ParseIt.Result.value? {ε ι τ α : Type} [Iterator ι Id τ] {it : Iter (α := ι) τ} :
     Result ε it α → Option α
-  | .ok _ _ x => some x
+  | .ok _ _ x _ => some x
   | .error _ => none
 
 /-- Run a trivial-error parser on the characters of a string. -/

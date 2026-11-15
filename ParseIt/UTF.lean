@@ -53,7 +53,7 @@ public def illFormed {ε δ ι τ : Type} {m : Type → Type} [Decoder δ τ Cha
     ParserT ε (DecodeIterator δ ι) Char m DecodeError.Kind :=
   fun it =>
     pure <| match it.decodeContinue? with
-      | some (k, ⟨next, h⟩) => .ok next (.moved h) k
+      | some (k, ⟨next, h⟩) => .ok next (.moved h) k none
       | none =>
         .error (Error.unexpected it (Unicode.nextToken it (fun _ _ c => some c) (fun _ => none)))
 
@@ -75,7 +75,7 @@ public def parseDecoded [Decoder δ τ Char] [Iterator ι Id τ] [Iterators.Fini
   let ill (it : Iter (α := DecodeIterator δ ι) Char) (k : DecodeError.Kind) : ε :=
     Error.addMessage (Error.unexpected it none) it (toString k)
   match p.run it with
-  | .ok rest _ x =>
+  | .ok rest _ x _ =>
     match if rest.decodeIsLossy then none else rest.decodeError? with
     | none => .ok x
     | some k => .error (ill rest k)

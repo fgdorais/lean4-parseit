@@ -50,12 +50,13 @@ def parseStr {α} [Repr α] (s : String) (p : Parser E CharIterator Char α) : S
 #guard parseStr "-0.25" ASCII.parseFloat == "ok -0.250000"
 #guard parseStr "." (ASCII.parseScientific Float) == "error at 1"
 
--- README example from lean4-parser: sum of sign-separated integers; `foldl` stops before `+x`
+-- README example from lean4-parser: sum of sign-separated integers; `foldl` stops before `+x`, and
+-- its failed round's error at `x` is reported
 def parseSum : Parser E CharIterator Char Int :=
   foldl (· + ·) 0 ASCII.parseInt <* endOfInput
 
 #guard parseStr "11-1+2-3+33" parseSum == "ok 42"
-#guard parseStr "11-1+x" parseSum == "error at 4"
+#guard parseStr "11-1+x" parseSum == "error at 5"
 
 -- captured text is a view into the input
 #guard (match Parser.parseString (ε := E) (captureSlice (takeMany ASCII.alpha)) "abc123" with

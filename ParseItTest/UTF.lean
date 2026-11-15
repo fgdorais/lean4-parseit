@@ -22,7 +22,7 @@ def show? {ε α : Type} [ToString ε] [ToString α] : Except ε α → String
 
 #guard show? ((sumOf UTF16Iterator).parseUTF16 (UTF16.encode "11-1+2-3+33")) == "ok 42"
 #guard show? ((sumOf UTF16Iterator).parseUTF16 (UTF16.encode "11-1+x")) ==
-  "error unexpected input '+' at 4"
+  "error unexpected input 'x' at 5"
 -- Decoding stops at the unpaired surrogate, which is reported there.
 #guard show? ((sumOf UTF16Iterator).parseUTF16 [0x31, 0x32, 0xD800, 0x33].toUInt16Array) ==
   "error unexpected input at 2"

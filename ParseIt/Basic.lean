@@ -75,12 +75,28 @@ private theorem advanced_of_trans {it'' it' it : Iter (α := ι) τ} :
   | .stay h₁, h₂ => h₁ ▸ h₂
   | .moved h₁, h₂ => h₁.trans h₂
 
+/--
+Hint after a success with hint `h₁` followed by a parse with progress `p` and hint `h₂`. The hints
+`h₁` are only relevant where the first parse stopped, so they are dropped when the second parse
+moved.
+-/
+@[inline]
+public def mergeHints [Error ε ι τ] {it' it : Iter (α := ι) τ} (p : Progress it' it)
+    (h₁ h₂ : Option ε) : Option ε :=
+  if p.isMoved then h₂ else Error.mergeHints (ι := ι) h₁ h₂
+
 end Progress
 
-/-- Parser result for a parse starting at iterator `it`. -/
+/--
+Parser result for a parse starting at iterator `it`.
+
+A success can carry a *hint*: the error of an alternative that was given up on where the parse
+stopped, such as the failed last round of a repetition. When the next parser fails without moving,
+the hint is merged into its error, so that errors further along are not lost.
+-/
 public inductive Result (ε : Type u) (it : Iter (α := ι) τ) (α : Type u) : Type u where
-  /-- Success, with the remaining iterator and the progress made. -/
-  | ok (rest : Iter (α := ι) τ) (progress : Progress rest it) (value : α)
+  /-- Success, with the remaining iterator, the progress made, and an optional hint. -/
+  | ok (rest : Iter (α := ι) τ) (progress : Progress rest it) (value : α) (hint : Option ε)
   /-- Failure. No input is consumed on failure. -/
   | error (err : ε)
 
@@ -102,34 +118,41 @@ namespace ParserT
 @[inline]
 public def run (p : ParserT ε ι τ m α) (it : Iter (α := ι) τ) : m (Result ε it α) := p it
 
-public instance [Monad m] : Monad (ParserT ε ι τ m) where
-  pure x it := pure (.ok it (.refl it) x)
+/--
+Hints of `p` are merged into the errors of `f`, and are kept with the hints of `f` when `f`
+succeeds without moving.
+-/
+public instance [Monad m] [Error ε ι τ] : Monad (ParserT ε ι τ m) where
+  pure x it := pure (.ok it (.refl it) x none)
   bind p f it := do
     match ← p it with
-    | .ok rest h₁ x =>
+    | .ok rest h₁ x hint₁ =>
       match ← f x rest with
-      | .ok rest' h₂ y => return .ok rest' (h₂.trans h₁) y
-      | .error e => return .error e
+      | .ok rest' h₂ y hint₂ => return .ok rest' (h₂.trans h₁) y (h₂.mergeHints hint₁ hint₂)
+      | .error e => return .error (Error.mergeHint (ι := ι) hint₁ e)
     | .error e => return .error e
 
 public instance [Monad m] : MonadExceptOf ε (ParserT ε ι τ m) where
   throw e _ := return .error e
   tryCatch p c it := do
     match ← p it with
-    | .ok rest h x => return .ok rest h x
+    | .ok rest h x hint => return .ok rest h x hint
     | .error e => c e it
 
 public instance [Monad m] : MonadLift m (ParserT ε ι τ m) where
-  monadLift x it := return .ok it (.refl it) (← x)
+  monadLift x it := return .ok it (.refl it) (← x) none
 
-/-- `p <|> q` runs `q` from the same starting point when `p` fails, merging both errors. -/
+/--
+`p <|> q` runs `q` from the same starting point when `p` fails, merging both errors. When `q`
+succeeds without moving, the error of `p` is kept as a hint.
+-/
 public instance [Monad m] [Error ε ι τ] : OrElse (ParserT ε ι τ m α) where
   orElse p q it := do
     match ← p it with
-    | .ok rest h x => return .ok rest h x
+    | .ok rest h x hint => return .ok rest h x hint
     | .error e₁ =>
       match ← q () it with
-      | .ok rest h x => return .ok rest h x
+      | .ok rest h x hint => return .ok rest h x (h.mergeHints (some e₁) hint)
       | .error e₂ => return .error (Error.merge (ι := ι) e₁ e₂)
 
 end ParserT
@@ -143,7 +166,7 @@ public protected def Parser.run (p : Parser ε ι τ α) (it : Iter (α := ι) �
 @[inline]
 public def Parser.parse (p : Parser ε ι τ α) (it : Iter (α := ι) τ) : Except ε α :=
   match p.run it with
-  | .ok _ _ x => .ok x
+  | .ok _ _ x _ => .ok x
   | .error e => .error e
 
 /-! # Positions and errors -/
@@ -151,12 +174,12 @@ public def Parser.parse (p : Parser ε ι τ α) (it : Iter (α := ι) τ) : Exc
 /-- Get the current iterator. -/
 @[inline]
 private def getIter [Pure m] : ParserT ε ι τ m (Iter (α := ι) τ) :=
-  fun it => pure (.ok it (.refl it) it)
+  fun it => pure (.ok it (.refl it) it none)
 
 /-- `getPos` returns the current input position. Consumes no input and never fails. -/
 @[inline]
 public def getPos [Pure m] [HasPos ι τ] : ParserT ε ι τ m (HasPos.Pos ι) :=
-  fun it => pure (.ok it (.refl it) (HasPos.pos it))
+  fun it => pure (.ok it (.refl it) (HasPos.pos it) none)
 
 /--
 `withSpan p` parses `p` and returns its result together with the input positions where `p` started
@@ -166,7 +189,7 @@ and stopped.
 public def withSpan [Monad m] [HasPos ι τ] (p : ParserT ε ι τ m α) :
     ParserT ε ι τ m (α × HasPos.Pos ι × HasPos.Pos ι) := fun it => do
   match ← p it with
-  | .ok rest h x => return .ok rest h (x, HasPos.pos it, HasPos.pos rest)
+  | .ok rest h x hint => return .ok rest h (x, HasPos.pos it, HasPos.pos rest) hint
   | .error e => return .error e
 
 /-- Throw an unexpected input error at the current position. -/
@@ -186,19 +209,19 @@ public def throwUnexpectedWithMessage [Pure m] [Error ε ι τ] (input : Option 
 public def withErrorMessage [Monad m] [Error ε ι τ] (msg : String) (p : ParserT ε ι τ m α) :
     ParserT ε ι τ m α := fun it => do
   match ← p it with
-  | .ok rest h x => return .ok rest h x
+  | .ok rest h x hint => return .ok rest h x hint
   | .error e => return .error (Error.addMessage e it msg)
 
 /-! # Basic combinators -/
 
 /--
 `lookAhead p` parses `p` without consuming any input. If `p` fails then `lookAhead p` fails with the
-same error.
+same error. The hints of `p` are kept only when `p` did not move.
 -/
 @[inline]
 public def lookAhead [Monad m] (p : ParserT ε ι τ m α) : ParserT ε ι τ m α := fun it => do
   match ← p it with
-  | .ok _ _ x => return .ok it (.refl it) x
+  | .ok _ h x hint => return .ok it (.refl it) x (if h.isMoved then none else hint)
   | .error e => return .error e
 
 /-- `notFollowedBy p` succeeds only if `p` fails. Consumes no input. -/
@@ -207,30 +230,21 @@ public def notFollowedBy [Monad m] [Error ε ι τ] (p : ParserT ε ι τ m α) 
     ParserT ε ι τ m Unitᵤ :=
   fun it => do
     match ← p it with
-    | .ok _ _ _ => return .error (Error.unexpected it none)
-    | .error _ => return .ok it (.refl it) ⟨⟩
+    | .ok _ _ _ _ => return .error (Error.unexpected it none)
+    | .error _ => return .ok it (.refl it) ⟨⟩ none
 
 /-! ### `option` family -/
 
 /--
-`eoption p` tries to parse `p` and returns `Sum.inl x` if `p` returns `x`, or `Sum.inr e` if `p`
-fails with error `e`. This parser never fails.
--/
-@[inline]
-private def eoption [Monad m] (p : ParserT ε ι τ m α) : ParserT ε ι τ m (Sum α ε) := fun it => do
-  match ← p it with
-  | .ok rest h x => return .ok rest h (.inl x)
-  | .error e => return .ok it (.refl it) (.inr e)
-
-/--
 `optionD p default` tries to parse `p` and returns `x` if `p` returns `x`, otherwise returns the
-monadic value `default`. This parser never fails.
+monadic value `default`, keeping the error of `p` as a hint. This parser never fails.
 -/
 @[inline]
-public def optionD [Monad m] (p : ParserT ε ι τ m α) (default : m α) : ParserT ε ι τ m α := do
-  match ← eoption p with
-  | .inl x => return x
-  | .inr _ => default
+public def optionD [Monad m] (p : ParserT ε ι τ m α) (default : m α) : ParserT ε ι τ m α :=
+  fun it => do
+    match ← p it with
+    | .ok rest h x hint => return .ok rest h x hint
+    | .error e => return .ok it (.refl it) (← default) (some e)
 
 /--
 `option! p` tries to parse `p` and returns `x` if `p` returns `x`, otherwise returns
@@ -245,19 +259,19 @@ public def option! [Monad m] [Inhabited α] (p : ParserT ε ι τ m α) : Parser
 This parser never fails.
 -/
 @[inline]
-public def option? [Monad m] (p : ParserT ε ι τ m α) : ParserT ε ι τ m (Option α) :=
+public def option? [Monad m] [Error ε ι τ] (p : ParserT ε ι τ m α) : ParserT ε ι τ m (Option α) :=
   optionD (some <$> p) (pure none)
 
 /-- `optional p` tries to parse `p`, ignoring its output and errors. This parser never fails. -/
 @[inline]
-public def optional [Monad m] (p : ParserT ε ι τ m α) : ParserT ε ι τ m Unitᵤ :=
+public def optional [Monad m] [Error ε ι τ] (p : ParserT ε ι τ m α) : ParserT ε ι τ m Unitᵤ :=
   optionD (p *> pure ⟨⟩) (pure ⟨⟩)
 
 /--
 `test p` returns `true` if `p` succeeds and `false` otherwise. This parser never fails.
 -/
 @[inline]
-public def test [Monad m] (p : ParserT ε ι τ m α) : ParserT ε ι τ m Boolᵤ :=
+public def test [Monad m] [Error ε ι τ] (p : ParserT ε ι τ m α) : ParserT ε ι τ m Boolᵤ :=
   optionD (p *> pure .true) (pure .false)
 
 /-! ### `first` family -/
@@ -274,15 +288,18 @@ public def first [Monad m] [Error ε ι τ] (ps : List (ParserT ε ι τ m α))
     | [] => pure (.error (Error.unexpected it none))
     | p :: ps => do
       match ← p it with
-      | .ok rest h x => pure (.ok rest h x)
+      | .ok rest h x hint => pure (.ok rest h x hint)
       | .error e => loop ps e it
 where
-  /-- Try the parsers `ps` after earlier alternatives failed with error `e`. -/
+  /--
+  Try the parsers `ps` after earlier alternatives failed with error `e`, which is kept as a hint
+  when an alternative succeeds without moving.
+  -/
   loop : List (ParserT ε ι τ m α) → ε → ParserT ε ι τ m α
   | [], e, _ => pure (.error e)
   | p :: ps, e, it => do
     match ← p it with
-    | .ok rest h x => pure (.ok rest h x)
+    | .ok rest h x hint => pure (.ok rest h x (h.mergeHints (some e) hint))
     | .error f => loop ps (combine e f) it
 
 end ParseIt

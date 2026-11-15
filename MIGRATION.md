@@ -44,8 +44,9 @@ Repetition combinators need `[Std.Iterators.Finite ι Id]`, and token parsers ne
 `p.run s` returned `.ok stream value` or `.error stream err`. In ParseIt:
 
 * `p.parseString s` (and the other `parse*` helpers) returns `Except ε α`.
-* `p.run it` returns `Result ε it α`: `.ok rest progress value` or `.error err`. Errors carry no
-  stream, since a failed parse never consumes input.
+* `p.run it` returns `Result ε it α`: `.ok rest progress value hint` or `.error err`. Errors carry
+  no stream, since a failed parse never consumes input. The `hint` of a success is the error of an
+  alternative it gave up on, such as the failed last round of a repetition.
 * To check that all input was consumed, end the parser with `<* endOfInput`.
 
 ## Errors

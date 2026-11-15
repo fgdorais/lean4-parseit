@@ -46,6 +46,20 @@ public class Error (ε : Type u) (ι : Type u) (τ : outParam (Type u)) [Iterato
 
 namespace Error
 
+/-- Merge the optional hint `h` into error `e`. With the default merge, `e` is kept. -/
+@[inline]
+public def mergeHint {ε : Type u} [Error ε ι τ] (h : Option ε) (e : ε) : ε :=
+  match h with
+  | none => e
+  | some h => merge (ι := ι) h e
+
+/-- Merge two optional hints, `h₂` being the later one. -/
+@[inline]
+public def mergeHints {ε : Type u} [Error ε ι τ] : Option ε → Option ε → Option ε
+  | none, h₂ => h₂
+  | h₁, none => h₁
+  | some e₁, some e₂ => some (merge (ι := ι) e₁ e₂)
+
 /-- *Trivial error type*: discards all error information. -/
 public abbrev Trivial : Type u := Unitᵤ
 

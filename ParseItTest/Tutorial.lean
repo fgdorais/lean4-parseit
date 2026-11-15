@@ -110,7 +110,7 @@ def calcError (s : String) : String :=
   | .error msg => msg
 
 #guard calcError "1 + 2 x" == "unexpected input at byte 6"
-#guard calcError "1 + )" == "unexpected input at byte 2"
+#guard calcError "1 + )" == "unexpected input at byte 4"
 
 /-! ## Positions and captured text -/
 

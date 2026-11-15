@@ -222,15 +222,17 @@ The calculator reports byte positions:
 
 ```lean
 #eval calculate "1 + 2 x" -- .error "unexpected input at byte 6"
-#eval calculate "1 + )"   -- .error "unexpected input at byte 2"
+#eval calculate "1 + )"   -- .error "unexpected input at byte 4"
 ```
 
-The second error may be surprising: the problem is the `)` at byte 4, yet the error is reported at
-the `+`. This is how repetition interacts with backtracking. In `expr`, the round that parses `+ )`
-fails, so `foldlP` backtracks to just before the `+` and returns the sum so far, `1`. Then
-`endOfInput` fails at the `+`. The same happens with `takeMany`, `sepBy` and the other repetition
-combinators: an occurrence that fails partway is not consumed. Some combinators, such as `sepBy`
-and `endBy`, have a `strict` option that reports the error of such an occurrence instead.
+In the second example, the round of `expr` that parses `+ )` fails at the `)`, so `foldlP`
+backtracks to just before the `+` and returns the sum so far, `1`. Then `endOfInput` fails at the
+`+`. The error is still reported at the `)`: a repetition keeps the error of its failed round as a
+*hint*, and when the next parser fails without consuming input, the hint is merged into its error.
+`Error.Basic` then keeps the error that got furthest. The same happens with `takeMany`, `sepBy`,
+`option?`, `<|>` and the other combinators that give up on a failed alternative. Some combinators,
+such as `sepBy` and `endBy`, have a `strict` option that fails with the error of such an
+occurrence instead.
 
 ## Positions and captured text
 

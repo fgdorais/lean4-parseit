@@ -54,3 +54,20 @@ open ParseIt Std
 #guard parseBasic "a,a," (sepEndBy (token ',') (token 'a')) == "ok #['a', 'a'] at 4"
 #guard parseBasic "b" (sepBy1 (token ',') (token 'a')) == "error: unexpected input 'b' at 0"
 #guard parseBasic "a,a,b" (sepEndBy1 (token ',') (token 'a')) == "ok #['a', 'a'] at 4"
+
+-- a repetition keeps the error of its failed round as a hint
+#guard parseBasic "abac" (takeMany (token 'a' *> token 'b') <* endOfInput) ==
+  "error: unexpected input 'c' at 3"
+#guard parseBasic "abac" (dropMany (token 'a' *> token 'b') *> token 'x') ==
+  "error: unexpected input 'c' at 3"
+#guard parseBasic "a,a,b" (sepBy (token ',') (token 'a') <* endOfInput) ==
+  "error: unexpected input 'b' at 4"
+-- hints are dropped once a later parser consumes input
+#guard parseBasic "abd" (takeMany (tokenList ['a', 'b', 'c']) *> anyToken *> token 'x') ==
+  "error: unexpected input 'b' at 1"
+-- foldr merges the errors of all its attempts
+#guard parseBasic "aac" (foldr List.cons (token 'a') (token 'b' *> pure [])) ==
+  "error: unexpected input 'c' at 2"
+-- `takeUntil` merges the errors of `stop` and `p`
+#guard parseBasic "ac" (takeUntil (token 'a' *> token 'b') (token 'x')) ==
+  "error: unexpected input 'c' at 1"
