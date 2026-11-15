@@ -72,7 +72,7 @@ jobs:
         with:
           token: ${{ secrets.PARSEIT_TOKEN }}
           commit-message: "chore: update toolchain to ${{ steps.toolchain.outputs.toolchain_rev }}"
-          branch: update-main-toolchain-${{ steps.toolchain.outputs.toolchain_rev }}
+          branch: update-main-toolchain
           base: main
           delete-branch: true
           title: "chore: update toolchain to ${{ steps.toolchain.outputs.toolchain_rev }}"

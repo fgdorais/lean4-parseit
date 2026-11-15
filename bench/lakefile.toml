@@ -1,5 +1,5 @@
 name = "ParseItBench"
-defaultTargets = ["bench"]
+defaultTargets = ["bench", "micro"]
 
 [[require]]
 name = "ParseIt"
@@ -16,3 +16,7 @@ name = "Bench"
 [[lean_exe]]
 name = "bench"
 root = "Main"
+
+[[lean_exe]]
+name = "micro"
+root = "Micro"

@@ -26,7 +26,7 @@ public def char (c : Char) : ParserT ε ι Char m Char :=
 /-- `string s` accepts the characters of `s` in order and returns `s`. -/
 public def string (s : String) : ParserT ε ι Char m String :=
   withErrorMessage s!"expected {repr s}" do
-    for c in s.toList do
+    for c in s do
       discard <| token c
     return s
 

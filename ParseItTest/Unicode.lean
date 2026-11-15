@@ -64,3 +64,5 @@ def parseU {α} (s : String) (p : Parser Error.Trivial CharIterator Char α) : O
 #guard parseU "Strase" (Unicode.stringCaseInsensitive "strasse") == none
 #guard parseU "ß" (Unicode.stringCaseInsensitive "s") == none
 #guard parseU "x" (Unicode.stringCaseInsensitive "") == some ""
+-- U+212A KELVIN SIGN folds to ASCII `k`
+#guard parseU "\u212Aelvin" (Unicode.stringCaseInsensitive "kelvin") == some "\u212Aelvin"
