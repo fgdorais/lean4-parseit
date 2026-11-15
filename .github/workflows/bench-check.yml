@@ -1,0 +1,29 @@
+name: Bench check (temporary)
+on: push
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: install elan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: update and build
+        working-directory: bench
+        run: lake update && lake build
+      - name: compare
+        working-directory: bench
+        run: |
+          git fetch origin error-hints main
+          ./compare.py origin/main origin/error-hints --runs 3 --output report.md --csv report.csv
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench
+          path: |
+            bench/lake-manifest.json
+            bench/report.md
+            bench/report.csv
