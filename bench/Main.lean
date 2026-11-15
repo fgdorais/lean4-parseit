@@ -27,9 +27,11 @@ def timeRuns (k : Nat) (f : String → Bool) (s : String) : IO (Nat × Nat) := d
   let sorted := times.qsort (· < ·)
   return (sorted[k / 2]!, (h₁ - h₀) / k)
 
+/-- `bench [runs] [simple|trivial] [--parseit-only]`. -/
 def main (args : List String) : IO Unit := do
   let k := (args.head? >>= String.toNat?).getD 11
   let errorType := args[1]?.getD "simple"
+  let both := !args.contains "--parseit-only"
   IO.println s!"errors={errorType}"
   IO.println "records,bytes,parseit_us,parser_us,parseit_allocs,parser_allocs"
   let (f₁, f₂) : (String → Bool) × (String → Bool) :=
@@ -39,7 +41,7 @@ def main (args : List String) : IO Unit := do
     let s := genJSON n
     -- warm up
     discard <| timeRuns 1 f₁ s
-    discard <| timeRuns 1 f₂ s
+    if both then discard <| timeRuns 1 f₂ s
     let (t₁, a₁) ← timeRuns k f₁ s
-    let (t₂, a₂) ← timeRuns k f₂ s
+    let (t₂, a₂) ← if both then timeRuns k f₂ s else pure (0, 0)
     IO.println s!"{n},{s.utf8ByteSize},{t₁},{t₂},{a₁},{a₂}"
