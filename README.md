@@ -1,4 +1,4 @@
-# ParseIt
+# Lean 4 / ParseIt
 
 A lean parser combinator library for [Lean 4](https://lean-lang.org/), built on iterators.
 
@@ -6,6 +6,9 @@ Parsers read tokens from any pure `Std.Iter`. The parser state is the iterator i
 backtracking is just reusing an earlier iterator. Every successful parse records whether it
 consumed input, and this lets all repetition combinators be total: there is no `partial` in the
 library, and repeating a parser that consumes nothing stops instead of looping forever.
+
+Source documentation is available at
+[www.dorais.org/lean4-parseit/doc/](https://www.dorais.org/lean4-parseit/doc/).
 
 ## Usage
 
@@ -37,6 +40,9 @@ def parseSum : Parser (Error.Basic CharIterator) CharIterator Char Int :=
 The `ParseItExamples` directory contains more elaborate parsers: a BNF parser that parses its own syntax,
 a JSON validator and a Roman numeral parser.
 
+New to ParseIt? Start with the [tutorial](TUTORIAL.md). Coming from lean4-parser? See
+[MIGRATION.md](MIGRATION.md).
+
 ## Overview
 
 * `ParseIt.Basic`: the `ParserT` monad transformer, alternatives with `<|>` and `first`,
@@ -47,8 +53,17 @@ a JSON validator and a Roman numeral parser.
 * `ParseIt.Input`: inputs for `String.Slice`, `ByteArray`, `BitVec`, `Array`, `Vector` and `List`,
   with `parseString`, `parseSlice`, `parseByteArray`, `parseBitVec`, `parseArray`, `parseVector`
   and `parseList`.
+* `ParseIt.ScalarArray`: inputs for the arrays of
+  [lean4-scalar-arrays](https://github.com/fgdorais/lean4-scalar-arrays), with a runner for each
+  array type, such as `parseUInt8Array` and `parseFloat64Array`, and `parseFloatArray` for core's
+  `FloatArray`.
 * `ParseIt.Char`: ASCII character and numeric parsers, and Unicode property parsers based on
   [UnicodeBasic](https://github.com/fgdorais/lean4-unicode-basic).
+* `ParseIt.UTF` (experimental): parsers over UTF-8, UTF-16 and UTF-32 input, with `parseUTF8`,
+  `parseUTF16` and `parseUTF32`, based on
+  [UnicodeFormat](https://github.com/fgdorais/lean4-unicode-format). Errors are at positions in the
+  encoded input, and ill-formed input is reported as an error, or consumed with `UTF.illFormed` by
+  parsers that go on after it.
 
 ## Acknowledgements
 

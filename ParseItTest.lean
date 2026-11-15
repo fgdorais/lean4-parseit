@@ -3,7 +3,10 @@ import ParseItTest.Combinators
 import ParseItTest.Repeat
 import ParseItTest.Text
 import ParseItTest.Unicode
+import ParseItTest.ScalarArray
+import ParseItTest.UTF
 import ParseItTest.Roman
 import ParseItTest.JSON
 import ParseItTest.BNF
 import ParseItTest.Readme
+import ParseItTest.Tutorial

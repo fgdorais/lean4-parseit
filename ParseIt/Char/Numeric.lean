@@ -17,25 +17,76 @@ open Std
 variable {ε ι : Type} {m : Type → Type} [Iterator ι Id Char] [Iterators.Finite ι Id]
   [Error ε ι Char] [Monad m]
 
+/--
+Digits read so far in some base: the full chunks of a fixed number of digits, then the `len`
+digits of `cur`. Chunks stay small enough to avoid bignum arithmetic until they are combined.
+-/
+private structure Digits where
+  /-- Values of the full chunks, most significant first. -/
+  chunks : Array Nat := #[]
+  /-- Value of the digits after the last full chunk. -/
+  cur : Nat := 0
+  /-- Number of digits after the last full chunk. -/
+  len : UInt8 := 0
+
+namespace Digits
+
+/-- Add digit `d` in base `b`, starting a new chunk after `size` digits. -/
+@[inline]
+private def push (b : Nat) (size : UInt8) (s : Digits) (d : Nat) : Digits :=
+  if s.len < size then { s with cur := b * s.cur + d, len := s.len + 1 }
+  else { chunks := s.chunks.push s.cur, cur := d, len := 1 }
+
+/--
+Value of `chunks[lo:hi]`, each chunk having `size` digits, where `shift x k` appends `k` zero
+digits to `x`. Splitting in halves lets bignum multiplication do the work in subquadratic time.
+-/
+@[specialize]
+private def combine (shift : Nat → Nat → Nat) (size : Nat) (chunks : Array Nat) (lo hi : Nat) :
+    Nat :=
+  if hi ≤ lo then 0
+  else if hi = lo + 1 then chunks[lo]?.getD 0
+  else
+    let mid := (lo + hi) / 2
+    shift (combine shift size chunks lo mid) (size * (hi - mid)) +
+      combine shift size chunks mid hi
+termination_by hi - lo
+
+end Digits
+
+/--
+Fold the digits parsed by `digit` into `n`, returning the value and the number of digits. Digits
+are read in chunks of `size` and `shift x k` appends `k` zero digits to `x`.
+-/
+@[inline]
+private def numDigits {b : Nat} (size : Nat) (shift : Nat → Nat → Nat)
+    (digit : ParserT ε ι Char m (Fin b)) (n : Nat) : ParserT ε ι Char m (Nat × Nat) := do
+  -- `n` sits in front of the first chunk, which is correct since chunks are weighted by position
+  let s ← foldl (fun (s : Digits) (d : Fin b) => s.push b size.toUInt8 d) { cur := n } digit
+  let k := s.chunks.size * size + s.len.toNat
+  if s.chunks.isEmpty then return (s.cur, k)
+  let v := Digits.combine shift size s.chunks 0 s.chunks.size
+  return (shift v s.len.toNat + s.cur, k)
+
 /-- Fold decimal digits into `n`, returning the value and the number of digits. -/
 @[inline]
 private def decNum (n : Nat := 0) : ParserT ε ι Char m (Nat × Nat) :=
-  foldl (fun (r : Nat × Nat) (d : Fin 10) => (10 * r.1 + d, r.2 + 1)) (n, 0) digit
+  numDigits 18 (fun x k => x * 10 ^ k) digit n
 
 /-- Fold binary digits into `n`, returning the value and the number of digits. -/
 @[inline]
 private def binNum (n : Nat := 0) : ParserT ε ι Char m (Nat × Nat) :=
-  foldl (fun (r : Nat × Nat) (d : Fin 2) => (r.1 <<< 1 + d, r.2 + 1)) (n, 0) binDigit
+  numDigits 62 (fun x k => x <<< k) binDigit n
 
 /-- Fold octal digits into `n`, returning the value and the number of digits. -/
 @[inline]
 private def octNum (n : Nat := 0) : ParserT ε ι Char m (Nat × Nat) :=
-  foldl (fun (r : Nat × Nat) (d : Fin 8) => (r.1 <<< 3 + d, r.2 + 1)) (n, 0) octDigit
+  numDigits 20 (fun x k => x <<< (3 * k)) octDigit n
 
 /-- Fold hexadecimal digits into `n`, returning the value and the number of digits. -/
 @[inline]
 private def hexNum (n : Nat := 0) : ParserT ε ι Char m (Nat × Nat) :=
-  foldl (fun (r : Nat × Nat) (d : Fin 16) => (r.1 <<< 4 + d, r.2 + 1)) (n, 0) hexDigit
+  numDigits 15 (fun x k => x <<< (4 * k)) hexDigit n
 
 /--
 Parse a `Nat`. Unless `decimalOnly` is `true`, a leading `0` introduces binary (`0b`), hexadecimal
