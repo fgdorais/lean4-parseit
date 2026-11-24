@@ -1,0 +1,1 @@
+{"declarations":[],"imports":["Init","ScalarArray.Conversions","ScalarArray.Float32","ScalarArray.Float64","ScalarArray.ISize","ScalarArray.Int16","ScalarArray.Int32","ScalarArray.Int64","ScalarArray.Int8","ScalarArray.UInt16","ScalarArray.UInt32","ScalarArray.UInt64","ScalarArray.UInt8","ScalarArray.USize"],"instances":[],"name":"ScalarArray"}
